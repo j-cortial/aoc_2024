@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cmath>
 #include <fstream>
+#include <iterator>
 #include <print>
 #include <ranges>
 #include <sstream>
@@ -39,7 +40,15 @@ auto solve_part1(const auto& input) {
 }
 
 auto solve_part2(const auto& input) {
-  return 0;
+  const auto& left = input[0];
+  auto right = input[1];
+  std::ranges::sort(right);
+  return std::ranges::fold_left(
+      left,
+      Num{},
+      [&right](const auto acc, const auto& elem) {
+        return acc + elem * std::distance(std::ranges::lower_bound(right, elem), std::ranges::upper_bound(right, elem));
+      });
 }
 
 auto main() -> int {
