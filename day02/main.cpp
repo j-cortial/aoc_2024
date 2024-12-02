@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <fstream>
 #include <iterator>
@@ -43,8 +44,10 @@ auto solve_part2(const auto& input) {
            std::ranges::any_of(std::ranges::views::iota(0UZ, report.size()), [&](const auto idx) {
              std::vector<Int> truncated_report;
              truncated_report.reserve(report.size() - 1UZ);
-             std::copy(report.cbegin(), std::next(report.cbegin(), idx), std::back_inserter(truncated_report));
-             std::copy(std::next(report.cbegin(), idx + 1UZ), report.cend(), std::back_inserter(truncated_report));
+             std::copy(report.cbegin(), std::next(report.cbegin(), idx),
+                       std::back_inserter(truncated_report));
+             std::copy(std::next(report.cbegin(), idx + 1UZ), report.cend(),
+                       std::back_inserter(truncated_report));
              return is_safe(truncated_report);
            });
   });
