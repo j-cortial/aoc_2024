@@ -22,18 +22,28 @@ auto parse_input(std::istream&& in) {
   return result;
 }
 
+auto is_safe(const auto& report) {
+  std::vector<Int> differences;
+  differences.reserve(report.size());
+  std::adjacent_difference(report.cbegin(), report.cend(), std::back_inserter(differences));
+  const std::span<const Int> deltas{std::next(differences.cbegin()), differences.cend()};
+  return std::ranges::all_of(deltas, [&](const auto& value) { return std::abs(value) <= 3 && std::abs(value) >= 1 && std::signbit(value) == std::signbit(deltas[0]); });
+}
+
 auto solve_part1(const auto& input) {
-  return std::ranges::count_if(input, [](const auto& report) {
-    std::vector<Int> differences;
-    differences.reserve(report.size());
-    std::adjacent_difference(report.cbegin(), report.cend(), std::back_inserter(differences));
-    const std::span<const Int> deltas{std::next(differences.cbegin()), differences.cend()};
-    return std::ranges::all_of(deltas, [&](const auto& value) { return std::abs(value) <= 3 && std::abs(value) >= 1 && std::signbit(value) == std::signbit(deltas[0]); });
-  });
+  return std::ranges::count_if(input, [](const auto& report) { return is_safe(report); });
 }
 
 auto solve_part2(const auto& input) {
-  return 0;
+  return std::ranges::count_if(input, [](const auto& report) {
+    return is_safe(report) || std::ranges::any_of(
+                                  std::ranges::views::iota(0UZ, report.size()),
+                                  [&](const auto idx) {
+                                    auto truncated_report = report;
+                                    truncated_report.erase(std::next(truncated_report.begin(), idx));
+                                    return is_safe(truncated_report);
+                                  });
+  });
 }
 
 auto main() -> int {
