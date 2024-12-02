@@ -12,7 +12,7 @@ add_library(asan-target INTERFACE)
 target_compile_options(asan-target INTERFACE -fsanitize=address -fno-omit-frame-pointer)
 target_link_options(asan-target INTERFACE -fsanitize=address)
 
-set(days day01 day02)
+set(days day01 day02 day03)
 
 foreach(day ${days})
   add_executable(${day} ${day}/main.cpp)
