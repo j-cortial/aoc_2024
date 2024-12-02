@@ -42,8 +42,8 @@ auto solve_part2(const auto& input) {
   auto right = input[1];
   std::ranges::sort(right);
   return std::ranges::fold_left(left, Int{}, [&right](const auto acc, const auto& elem) {
-    return acc + elem * std::distance(std::ranges::lower_bound(right, elem),
-                                      std::ranges::upper_bound(right, elem));
+    return acc + (elem * std::distance(std::ranges::lower_bound(right, elem),
+                                       std::ranges::upper_bound(right, elem)));
   });
 }
 
