@@ -41,8 +41,10 @@ auto solve_part2(const auto& input) {
   return std::ranges::count_if(input, [](const auto& report) {
     return is_safe(report) ||
            std::ranges::any_of(std::ranges::views::iota(0UZ, report.size()), [&](const auto idx) {
-             auto truncated_report = report;
-             truncated_report.erase(std::next(truncated_report.begin(), idx));
+             std::vector<Int> truncated_report;
+             truncated_report.reserve(report.size() - 1UZ);
+             std::copy(report.cbegin(), std::next(report.cbegin(), idx), std::back_inserter(truncated_report));
+             std::copy(std::next(report.cbegin(), idx + 1UZ), report.cend(), std::back_inserter(truncated_report));
              return is_safe(truncated_report);
            });
   });
