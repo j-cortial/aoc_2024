@@ -12,6 +12,7 @@ Checks: "-*,
   readability-*,-readability-magic-numbers,-readability-identifier-length"
 HeaderFilterRegex: ".*.[^c]pp"
 CheckOptions:
+  - { key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic, value: true }
   - { key: readability-identifier-naming.NamespaceCase, value: lower_case }
   - { key: readability-identifier-naming.ClassCase, value: CamelCase }
   - { key: readability-identifier-naming.StructCase, value: CamelCase }
