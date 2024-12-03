@@ -54,26 +54,32 @@ auto parse_input(std::istream&& in) {
   return result;
 }
 
+struct Part1Visitor {
+  constexpr auto operator()(const Mul& mul) const { return acc + mul.eval(); }
+  constexpr auto operator()(bool /*active*/) const { return acc; }
+
+  Int acc;
+};
+
 auto solve_part1(const auto& input) {
-  return std::transform_reduce(input.cbegin(), input.cend(), Int{}, std::plus<>{},
-                               [](const auto& cmd) {
-                                 if (std::holds_alternative<Mul>(cmd)) {
-                                   return std::get<Mul>(cmd).eval();
-                                 }
-                                 return Int{};
-                               });
+  return std::ranges::fold_left(input, Int{}, [](const auto& acc, const auto& cmd) {
+    return std::visit(Part1Visitor{acc}, cmd);
+  });
 }
+
+struct Part2Visitor {
+  constexpr auto operator()(const Mul& mul) const {
+    return std::make_pair(acc.first + (acc.second ? mul.eval() : Int{}), acc.second);
+  }
+  constexpr auto operator()(bool active) const { return std::make_pair(acc.first, active); }
+
+  std::pair<Int, bool> acc;
+};
 
 auto solve_part2(const auto& input) {
   return std::ranges::fold_left(
-             input, std::pair<Int, bool>{0, true},
-             [](const auto& acc, const auto& elem) {
-               if (std::holds_alternative<Mul>(elem)) {
-                 return std::make_pair(
-                     acc.first + (acc.second ? std::get<Mul>(elem).eval() : Int{}), acc.second);
-               }
-               return std::make_pair(acc.first, std::get<bool>(elem));
-             })
+             input, std::pair{Int{}, true},
+             [](const auto& acc, const auto& cmd) { return std::visit(Part2Visitor{acc}, cmd); })
       .first;
 }
 
