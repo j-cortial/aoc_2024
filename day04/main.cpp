@@ -99,7 +99,37 @@ auto solve_part1(const auto& input) {
   });
 }
 
-auto solve_part2(const auto& input) { return 0; }
+constexpr std::array<std::array<std::array<Idx, 2>, 2>, 2> cross_directions{{
+    {{{-1, -1}, {+1, +1}}},
+    {{{-1, +1}, {+1, -1}}},
+}};
+
+auto solve_part2(const auto& input) {
+  auto candidates =
+      std::ranges::views::cartesian_product(std::ranges::views::iota(Idx{}, input.row_count()),
+                                            std::ranges::views::iota(Idx{}, input.col_count()));
+  return std::ranges::count_if(candidates, [&](const auto& x) {
+    const auto& [row, col] = x;
+    if (input[row, col] != std::optional{Letter::a}) {
+      return false;
+    }
+    return std::ranges::all_of(cross_directions, [&](const auto& ds) {
+      const auto& [d1, d2] = ds;
+      const auto l1 = input[row + d1[0], col + d1[1]];
+      const auto l2 = input[row + d2[0], col + d2[1]];
+      if (!l1.has_value() || !l2.has_value()) {
+        return false;
+      }
+      if (*l1 != Letter::m && *l2 != Letter::m) {
+        return false;
+      }
+      if (*l1 != Letter::s && *l2 != Letter::s) {
+        return false;
+      }
+      return true;
+    });
+  });
+}
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
