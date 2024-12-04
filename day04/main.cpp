@@ -13,6 +13,13 @@ using Idx = std::int32_t;
 
 enum class Letter : std::uint8_t { x, m, a, s };
 
+constexpr std::array<Letter, 4> letters{
+    Letter::x,
+    Letter::m,
+    Letter::a,
+    Letter::s,
+};
+
 auto letter_from_char(char c) -> std::optional<Letter> {
   switch (c) {
     case 'X':
@@ -30,6 +37,9 @@ auto letter_from_char(char c) -> std::optional<Letter> {
 
 class Board {
  public:
+  auto row_count() const { return row_count_; }
+  auto col_count() const { return col_count_; }
+
   auto operator[](Idx row, Idx col) const -> std::optional<Letter> {
     if (row < 0 || row >= row_count_ || col < 0 || col >= col_count_) {
       return std::nullopt;
@@ -64,7 +74,30 @@ auto parse_input(std::istream&& in) {
                row_count, col_count};
 };
 
-auto solve_part1(const auto& input) { return 0; }
+constexpr std::array<std::array<Idx, 2>, 8> directions{{
+    {-1, -1},
+    {-1, +0},
+    {-1, +1},
+    {+0, -1},
+    {+0, +1},
+    {+1, -1},
+    {+1, +0},
+    {+1, +1},
+}};
+
+auto solve_part1(const auto& input) {
+  auto candidates = std::ranges::views::cartesian_product(
+      std::ranges::views::iota(Idx{}, input.row_count()),
+      std::ranges::views::iota(Idx{}, input.col_count()), std::ranges::views::all(directions));
+  return std::ranges::count_if(candidates, [&](const auto& x) {
+    const auto& [row, col, dir] = x;
+    const auto& [dr, dc] = dir;
+    return std::ranges::all_of(std::ranges::views::enumerate(letters), [&](const auto& p) {
+      const auto& [i, l] = p;
+      return input[row + (i * dr), col + (i * dc)] == std::optional{l};
+    });
+  });
+}
 
 auto solve_part2(const auto& input) { return 0; }
 
