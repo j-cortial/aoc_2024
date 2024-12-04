@@ -99,9 +99,9 @@ auto solve_part1(const auto& input) {
   });
 }
 
-constexpr std::array<std::array<std::array<Idx, 2>, 2>, 2> cross_directions{{
-    {{{-1, -1}, {+1, +1}}},
-    {{{-1, +1}, {+1, -1}}},
+constexpr std::array<std::array<Idx, 2>, 2> cross_directions{{
+    {{-1, -1}},
+    {{-1, +1}},
 }};
 
 auto solve_part2(const auto& input) {
@@ -113,10 +113,9 @@ auto solve_part2(const auto& input) {
     if (input[row, col] != std::optional{Letter::a}) {
       return false;
     }
-    return std::ranges::all_of(cross_directions, [&](const auto& ds) {
-      const auto& [d1, d2] = ds;
-      const auto l1 = input[row + d1[0], col + d1[1]];
-      const auto l2 = input[row + d2[0], col + d2[1]];
+    return std::ranges::all_of(cross_directions, [&](const auto& d) {
+      const auto l1 = input[row + d[0], col + d[1]];
+      const auto l2 = input[row - d[0], col - d[1]];
       if (!l1.has_value() || !l2.has_value()) {
         return false;
       }
