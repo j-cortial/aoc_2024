@@ -1,11 +1,15 @@
+#include <algorithm>
+#include <cassert>
 #include <charconv>
 #include <cstdint>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <print>
 #include <ranges>
-#include <string>
+#include <set>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 using namespace std::string_literals;
@@ -16,16 +20,20 @@ using Page = std::uint8_t;
 struct Rule {
   Page before;
   Page after;
+
+  auto operator<=>(const Rule&) const = default;
 };
 
 using Update = std::vector<Page>;
 
 auto parse_input(std::istream&& in) -> std::pair<std::vector<Rule>, std::vector<Update>> {
   const std::vector<char> data{std::istreambuf_iterator{in}, {}};
-  auto sections = std::ranges::views::lazy_split(data, "\n\n"sv) |
-                  std::ranges::views::transform([](const auto& section) {
-                    return section | std::ranges::views::lazy_split('\n');
-                  });
+  auto sections =
+      std::ranges::views::lazy_split(data, "\n\n"sv) |
+      std::ranges::views::transform([](const auto& section) {
+        return section | std::ranges::views::lazy_split('\n') |
+               std::ranges::views::filter([](const auto& line) { return !line.empty(); });
+      });
 
   auto it = sections.begin();
 
@@ -54,7 +62,26 @@ auto parse_input(std::istream&& in) -> std::pair<std::vector<Rule>, std::vector<
   return {std::move(rules), std::move(updates)};
 }
 
-auto solve_part1(const auto& input) { return 0; }
+auto solve_part1(const auto& input) {
+  const auto rules = std::ranges::views::all(input.first) | std::ranges::to<std::set>();
+
+  auto valid_updates =
+      std::ranges::views::filter(input.second,
+                                 [&](const auto& update) {
+                                   std::println("{}", update.size());
+                                   for (auto it = update.cbegin(); it != std::prev(update.cend());
+                                        ++it) {
+                                     for (auto jt = std::next(it); jt != update.cend(); ++jt) {
+                                       if (rules.contains({Rule{.before = *jt, .after = *it}})) {
+                                         return false;
+                                       }
+                                     }
+                                   }
+                                   return true;
+                                 }) |
+      std::ranges::views::transform([](const auto& update) { return update[update.size() / 2]; });
+  return std::ranges::fold_left(valid_updates, std::uint64_t{}, std::plus<>{});
+}
 
 auto solve_part2(const auto& input) { return 0; }
 
