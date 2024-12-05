@@ -5,6 +5,7 @@
 #include <fstream>
 #include <functional>
 #include <iterator>
+#include <map>
 #include <print>
 #include <ranges>
 #include <set>
@@ -62,28 +63,67 @@ auto parse_input(std::istream&& in) -> std::pair<std::vector<Rule>, std::vector<
   return {std::move(rules), std::move(updates)};
 }
 
+const auto is_valid = [](const std::set<Rule>& rules, const Update& update) {
+  for (auto it = update.cbegin(); it != std::prev(update.cend()); ++it) {
+    for (auto jt = std::next(it); jt != update.cend(); ++jt) {
+      if (rules.contains({Rule{.before = *jt, .after = *it}})) {
+        return false;
+      }
+    }
+  }
+  return true;
+};
+
 auto solve_part1(const auto& input) {
   const auto rules = std::ranges::views::all(input.first) | std::ranges::to<std::set>();
 
   auto valid_updates =
       std::ranges::views::filter(input.second,
-                                 [&](const auto& update) {
-                                   std::println("{}", update.size());
-                                   for (auto it = update.cbegin(); it != std::prev(update.cend());
-                                        ++it) {
-                                     for (auto jt = std::next(it); jt != update.cend(); ++jt) {
-                                       if (rules.contains({Rule{.before = *jt, .after = *it}})) {
-                                         return false;
-                                       }
-                                     }
-                                   }
-                                   return true;
-                                 }) |
+                                 [&](const auto& update) { return is_valid(rules, update); }) |
       std::ranges::views::transform([](const auto& update) { return update[update.size() / 2]; });
   return std::ranges::fold_left(valid_updates, std::uint64_t{}, std::plus<>{});
 }
 
-auto solve_part2(const auto& input) { return 0; }
+auto solve_part2(const std::pair<std::vector<Rule>, std::vector<Update>>& input) {
+  const auto rules = std::ranges::views::all(input.first) | std::ranges::to<std::set>();
+  const auto all_predecessors = std::ranges::views::all(input.first) |
+                                std::ranges::views::transform([](const auto& rule) {
+                                  return std::make_pair(rule.after, rule.before);
+                                }) |
+                                std::ranges::to<std::multimap>();
+
+  auto fixed_updates =
+      std::ranges::views::filter(input.second,
+                                 [&](const auto& update) { return !is_valid(rules, update); }) |
+      std::ranges::views::transform([&](const auto& update) {
+        std::multimap<Page, Page> predecessors;
+        for (const auto p : update) {
+          const auto iters = all_predecessors.equal_range(p);
+          for (auto it = iters.first; it != iters.second; ++it) {
+            if (std::ranges::contains(update, it->second)) {
+              predecessors.insert(*it);
+            }
+          }
+        }
+        Update result;
+        result.reserve(update.size());
+        Update remainder = update;
+        while (!remainder.empty()) {
+          const auto it = std::ranges::find_if_not(
+              remainder, [&](const Page p) { return predecessors.contains(p); });
+          assert(it != remainder.end());
+          const Page candidate = *it;
+          predecessors = std::ranges::views::filter(
+                             predecessors, [&](const auto& p) { return p.second != candidate; }) |
+                         std::ranges::to<std::multimap>();
+          result.push_back(candidate);
+          remainder.erase(it);
+        }
+        return result;
+      }) |
+      std::ranges::views::transform([](const auto& update) { return update[update.size() / 2]; });
+  return std::ranges::fold_left(fixed_updates, std::uint64_t{}, std::plus<>{});
+}
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
