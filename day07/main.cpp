@@ -19,7 +19,7 @@ template <typename Numeric, typename Range>
 auto parse(Range&& rng) {
   const auto token = std::forward<Range>(rng) | std::ranges::to<std::vector>();
   Numeric result;  // NOLINT
-  const std::from_chars_result status =
+  [[maybe_unused]] const std::from_chars_result status =
       std::from_chars(token.data(), std::next(token.data(), std::ptrdiff_t(token.size())), result);
   assert(status.ec == std::errc{});
   return result;
