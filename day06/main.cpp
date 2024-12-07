@@ -24,6 +24,8 @@ using Tile = bool;
 struct Guard {
   Loc loc;
   Loc dir;
+
+  auto operator<=>(const Guard&) const = default;
 };
 
 class Room {
@@ -41,6 +43,8 @@ class Room {
 
   Room(Obstacles obstacles, Idx row_count, Idx col_count)
       : obstacles_{std::move(obstacles)}, row_count_{row_count}, col_count_{col_count} {}
+
+  Room(Room other, Loc new_obstacle) : Room(std::move(other)) { obstacles_.insert(new_obstacle); }
 
  private:
   Obstacles obstacles_;
@@ -87,12 +91,9 @@ auto parse_input(std::istream&& in) {
 
 auto turn_right(const Loc& dir) { return Loc{.row = dir.col, .col = -dir.row}; }
 
-auto solve_part1(const auto& input) {
-  const Room& room = input.first;
-  Guard guard{input.second, Loc{.row = -1, .col = 0}};
-
-  std::set<Loc> patrol{};
-  patrol.insert(guard.loc);
+auto patrol(const Room& room, Guard guard) {
+  std::set<Loc> result{};
+  result.insert(guard.loc);
 
   for (;;) {
     const auto candidate =
@@ -105,13 +106,45 @@ auto solve_part1(const auto& input) {
       guard.dir = turn_right(guard.dir);
     } else {
       guard.loc = candidate;
-      patrol.insert(candidate);
+      result.insert(candidate);
     }
   }
-  return patrol.size();
+  return result;
 }
 
-auto solve_part2(const auto& input) { return 0; }
+auto solve_part1(const auto& input) {
+  return patrol(input.first, {input.second, Loc{.row = -1, .col = 0}}).size();
+}
+
+auto loops(const Room& room, Guard guard) {
+  std::set<Guard> patrol{{guard}};
+  for (;;) {
+    const auto candidate =
+        Loc{.row = guard.loc.row + guard.dir.row, .col = guard.loc.col + guard.dir.col};
+    if (patrol.contains(Guard{.loc = candidate, .dir = guard.dir})) {
+      return true;
+    }
+    const auto tile = room[candidate];
+    if (!tile) {
+      return false;
+    }
+    if (*tile) {
+      guard.dir = turn_right(guard.dir);
+    } else {
+      guard.loc = candidate;
+      patrol.insert(guard);
+    }
+  }
+}
+
+auto solve_part2(const auto& input) {
+  const auto& [room, start] = input;
+  const auto& guard = Guard{start, Loc{.row = -1, .col = 0}};
+  auto candidates = patrol(input.first, guard);
+  candidates.erase(start);
+  return std::ranges::count_if(
+      candidates, [&](const Loc& new_obstacle) { return loops(Room{room, new_obstacle}, guard); });
+}
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
