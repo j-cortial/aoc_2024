@@ -1,5 +1,4 @@
 Checks: "-*,
-  boost-*,
   bugprone-*,-bugprone-easily-swappable-parameters,
   cert-*,-cert-dcl21-cpp,-cert-err58-cpp,
   clang-analyzer*,
