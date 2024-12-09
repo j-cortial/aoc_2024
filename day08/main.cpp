@@ -1,8 +1,10 @@
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <numeric>
 #include <print>
 #include <ranges>
 #include <set>
@@ -30,8 +32,14 @@ auto make_antennas(auto&& rng) {
   return result;
 }
 
-auto antinode_loc(const Loc& first, const Loc& second) {
+auto basic_antinode_loc(const Loc& first, const Loc& second) {
   return Loc{.row = (Idx(2) * second.row) - first.row, .col = (Idx(2) * second.col) - first.col};
+}
+
+auto unit_vector(const Loc& first, const Loc& second) {
+  const Loc diff{.row = second.row - first.row, .col = second.col - first.col};
+  const auto gcd = std::gcd(std::abs(diff.row), std::abs(diff.col));
+  return Loc{.row = diff.row / gcd, .col = diff.col / gcd};
 }
 
 class City {
@@ -44,16 +52,40 @@ class City {
     return (row >= 0 && row < row_count_ && col >= 0 && col < col_count_);
   }
 
-  auto antinodes() const {
+  auto basic_antinodes() const {
     auto result_with_duplicates = std::ranges::common_view(std::ranges::views::join(
         antennas_ | std::ranges::views::values |
         std::ranges::views::transform([this](const auto& locs) {
           return std::ranges::views::cartesian_product(locs, locs) |
                  std::ranges::views::filter(
                      [](const auto& p) { return std::get<0>(p) != std::get<1>(p); }) |
-                 std::ranges::views::transform(
-                     [](const auto& p) { return antinode_loc(std::get<0>(p), std::get<1>(p)); }) |
+                 std::ranges::views::transform([](const auto& p) {
+                   return basic_antinode_loc(std::get<0>(p), std::get<1>(p));
+                 }) |
+
                  std::ranges::views::filter([&](const auto& loc) { return is_inside(loc); });
+        })));
+    return std::set<Loc>{result_with_duplicates.begin(), result_with_duplicates.end()};
+  }
+
+  auto advanced_antinodes() const {
+    auto result_with_duplicates = std::ranges::common_view(std::ranges::views::join(
+        antennas_ | std::ranges::views::values |
+        std::ranges::views::transform([this](const auto& locs) {
+          return std::ranges::views::join(
+              std::ranges::views::cartesian_product(locs, locs) |
+              std::ranges::views::filter(
+                  [](const auto& p) { return std::get<0>(p) != std::get<1>(p); }) |
+              std::ranges::views::transform([this](const auto& p) {
+                const auto& [base, other] = p;
+                const Loc step = unit_vector(base, other);
+                return std::ranges::views::iota(Idx{1}) |
+                       std::ranges::views::transform([&, step, base](const Idx i) {
+                         return Loc{base.row + (i * step.row), base.col + (i * step.col)};
+                       }) |
+                       std::ranges::views::take_while(
+                           [&](const Loc& loc) { return is_inside(loc); });
+              }));
         })));
     return std::set<Loc>{result_with_duplicates.begin(), result_with_duplicates.end()};
   }
@@ -88,9 +120,9 @@ auto parse_input(std::istream&& in) {
   return City{std::move(antennas), row_count, col_count};
 }
 
-auto solve_part1(const auto& input) { return input.antinodes().size(); }
+auto solve_part1(const auto& input) { return input.basic_antinodes().size(); }
 
-auto solve_part2(const auto& input) { return 0; }
+auto solve_part2(const auto& input) { return input.advanced_antinodes().size(); }
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
