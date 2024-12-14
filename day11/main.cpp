@@ -46,15 +46,17 @@ auto blink(std::forward_list<Int>& stones) {
   }
 }
 
-auto solve_part1(const auto& input) {
+auto solve(const auto& input, std::size_t blinks) {
   std::forward_list<Int> stones{input.cbegin(), input.cend()};
-  for (std::size_t i{}; i != 25UZ; ++i) {
+  for (std::size_t i{}; i != blinks; ++i) {
+    std::println("{}", i);
     blink(stones);
   }
   return std::ranges::distance(stones);
 }
 
-auto solve_part2(const auto& input) { return 0; }
+auto solve_part1(const auto& input) { return solve(input, 25UZ); }
+auto solve_part2(const auto& input) { return solve(input, 75UZ); }
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
