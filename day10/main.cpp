@@ -1,15 +1,26 @@
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <optional>
 #include <print>
 #include <ranges>
+#include <set>
 #include <utility>
 #include <vector>
 
 using Idx = std::int32_t;
+
+struct Loc {
+  Idx row;
+  Idx col;
+
+  auto operator<=>(const Loc& other) const = default;
+};
+
 using Height = std::uint8_t;
 
 class Terrain {
@@ -17,7 +28,8 @@ class Terrain {
   auto row_count() const { return row_count_; }
   auto col_count() const { return col_count_; }
 
-  auto operator[](Idx row, Idx col) const -> std::optional<Height> {
+  auto operator[](Loc loc) const -> std::optional<Height> {
+    const auto& [row, col] = loc;
     if (row < 0 || row >= row_count_ || col < 0 || col >= col_count_) {
       return std::nullopt;
     }
@@ -43,13 +55,52 @@ auto parse_input(std::istream&& in) {
   const auto col_count = Idx(std::ranges::distance(
       std::ranges::views::take_while(data, [](const char c) { return c != '\n'; })));
   auto heights = std::ranges::views::filter(data, [](const char c) { return c != '\n'; }) |
-                 std::ranges::views::transform([](const char c) { return Height(c - '\0'); }) |
+                 std::ranges::views::transform([](const char c) { return Height(c - '0'); }) |
                  std::ranges::to<std::vector>();
 
   return Terrain{std::move(heights), row_count, col_count};
 }
 
-auto solve_part1(const auto& input) { return 0; }
+constexpr std::array<Loc, 4> moves{
+    {{.row = -1, .col = 0}, {.row = 1, .col = 0}, {.row = 0, .col = -1}, {.row = 0, .col = 1}}};
+
+auto trailhead_score_impl(const Terrain& terrain, const std::vector<Loc>& path,
+                          std::set<Loc>& trailends) {
+  const Loc current_loc = path.back();
+  const auto current_height = static_cast<Height>(path.size() - 1UZ);
+
+  if (terrain[current_loc] != current_height) {
+    return;
+  }
+
+  if (current_height == Height{9}) {
+    trailends.insert(current_loc);
+    return;
+  }
+
+  std::ranges::for_each(moves, [&](const auto& m) {
+    const Loc candidate{.row = current_loc.row + m.row, .col = current_loc.col + m.col};
+    auto new_path = path;
+    new_path.push_back(candidate);
+    trailhead_score_impl(terrain, new_path, trailends);
+  });
+}
+
+auto trailhead_score(const Terrain& terrain, Loc start) {
+  std::set<Loc> trailends;
+  trailhead_score_impl(terrain, {start}, trailends);
+  return trailends.size();
+}
+
+auto solve_part1(const auto& input) {
+  return std::ranges::fold_left(
+      std::ranges::views::cartesian_product(std::ranges::views::iota(Idx{}, input.row_count()),
+                                            std::ranges::views::iota(Idx{}, input.col_count())) |
+          std::ranges::views::transform([&](const auto& p) {
+            return trailhead_score(input, Loc{.row = std::get<0>(p), .col = std::get<1>(p)});
+          }),
+      std::size_t{}, std::plus<>{});
+}
 
 auto solve_part2(const auto& input) { return 0; }
 
