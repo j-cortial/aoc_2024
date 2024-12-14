@@ -64,11 +64,8 @@ auto parse_input(std::istream&& in) {
 constexpr std::array<Loc, 4> moves{
     {{.row = -1, .col = 0}, {.row = 1, .col = 0}, {.row = 0, .col = -1}, {.row = 0, .col = 1}}};
 
-auto trailhead_score_impl(const Terrain& terrain, const std::vector<Loc>& path,
+auto trailhead_score_impl(const Terrain& terrain, Loc current_loc, Height current_height,
                           std::set<Loc>& trailends) {
-  const Loc current_loc = path.back();
-  const auto current_height = static_cast<Height>(path.size() - 1UZ);
-
   if (terrain[current_loc] != current_height) {
     return;
   }
@@ -80,15 +77,13 @@ auto trailhead_score_impl(const Terrain& terrain, const std::vector<Loc>& path,
 
   std::ranges::for_each(moves, [&](const auto& m) {
     const Loc candidate{.row = current_loc.row + m.row, .col = current_loc.col + m.col};
-    auto new_path = path;
-    new_path.push_back(candidate);
-    trailhead_score_impl(terrain, new_path, trailends);
+    trailhead_score_impl(terrain, candidate, current_height + Height{1}, trailends);
   });
 }
 
 auto trailhead_score(const Terrain& terrain, Loc start) {
   std::set<Loc> trailends;
-  trailhead_score_impl(terrain, {start}, trailends);
+  trailhead_score_impl(terrain, start, {}, trailends);
   return trailends.size();
 }
 
@@ -102,10 +97,7 @@ auto solve_part1(const auto& input) {
       std::size_t{}, std::plus<>{});
 }
 
-auto trail_count_impl(const Terrain& terrain, const std::vector<Loc>& path) {
-  const Loc current_loc = path.back();
-  const auto current_height = static_cast<Height>(path.size() - 1UZ);
-
+auto trail_count_impl(const Terrain& terrain, Loc current_loc, Height current_height) {
   if (terrain[current_loc] != current_height) {
     return 0UZ;
   }
@@ -115,18 +107,16 @@ auto trail_count_impl(const Terrain& terrain, const std::vector<Loc>& path) {
   }
 
   return std::ranges::fold_left(
-      std::ranges::views::transform(moves,
-                                    [&current_loc, &terrain, &path](const auto& m) {
-                                      const Loc candidate{.row = current_loc.row + m.row,
-                                                          .col = current_loc.col + m.col};
-                                      auto new_path = path;
-                                      new_path.push_back(candidate);
-                                      return trail_count_impl(terrain, new_path);
-                                    }),
+      std::ranges::views::transform(
+          moves,
+          [&](const auto& m) {
+            const Loc candidate{.row = current_loc.row + m.row, .col = current_loc.col + m.col};
+            return trail_count_impl(terrain, candidate, current_height + Height{1});
+          }),
       0UZ, std::plus<>{});
 }
 
-auto trail_count(const Terrain& terrain, Loc start) { return trail_count_impl(terrain, {start}); }
+auto trail_count(const Terrain& terrain, Loc start) { return trail_count_impl(terrain, start, {}); }
 
 auto solve_part2(const auto& input) {
   return std::ranges::fold_left(
