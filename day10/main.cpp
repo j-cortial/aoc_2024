@@ -102,7 +102,41 @@ auto solve_part1(const auto& input) {
       std::size_t{}, std::plus<>{});
 }
 
-auto solve_part2(const auto& input) { return 0; }
+auto trail_count_impl(const Terrain& terrain, const std::vector<Loc>& path) {
+  const Loc current_loc = path.back();
+  const auto current_height = static_cast<Height>(path.size() - 1UZ);
+
+  if (terrain[current_loc] != current_height) {
+    return 0UZ;
+  }
+
+  if (current_height == Height{9}) {
+    return 1UZ;
+  }
+
+  return std::ranges::fold_left(
+      std::ranges::views::transform(moves,
+                                    [&current_loc, &terrain, &path](const auto& m) {
+                                      const Loc candidate{.row = current_loc.row + m.row,
+                                                          .col = current_loc.col + m.col};
+                                      auto new_path = path;
+                                      new_path.push_back(candidate);
+                                      return trail_count_impl(terrain, new_path);
+                                    }),
+      0UZ, std::plus<>{});
+}
+
+auto trail_count(const Terrain& terrain, Loc start) { return trail_count_impl(terrain, {start}); }
+
+auto solve_part2(const auto& input) {
+  return std::ranges::fold_left(
+      std::ranges::views::cartesian_product(std::ranges::views::iota(Idx{}, input.row_count()),
+                                            std::ranges::views::iota(Idx{}, input.col_count())) |
+          std::ranges::views::transform([&](const auto& p) {
+            return trail_count(input, Loc{.row = std::get<0>(p), .col = std::get<1>(p)});
+          }),
+      std::size_t{}, std::plus<>{});
+}
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
