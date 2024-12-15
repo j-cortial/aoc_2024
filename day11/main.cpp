@@ -1,10 +1,9 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <forward_list>
 #include <fstream>
 #include <functional>
-#include <iterator>
+#include <map>
 #include <optional>
 #include <print>
 #include <ranges>
@@ -32,27 +31,30 @@ auto split(Int i) -> std::optional<std::pair<Int, Int>> {
   return {{i / divisor, i % divisor}};
 }
 
-auto blink(std::forward_list<Int>& stones) {
-  for (auto it = stones.begin(); it != stones.end(); ++it) {
-    if (*it == Int{0}) {
-      *it = Int{1};
-    } else if (const auto succ = split(*it); succ.has_value()) {
-      *it = succ->first;
-      stones.insert_after(it, succ->second);
-      ++it;
+auto blink(const std::map<Int, std::size_t>& stones) {
+  std::map<Int, std::size_t> result;
+  for (const auto& [i, count] : stones) {
+    if (i == Int{0}) {
+      result[Int{1}] += count;
+    } else if (const auto succ = split(i); succ.has_value()) {
+      result[succ->first] += count;
+      result[succ->second] += count;
     } else {
-      *it *= Int{2024};
+      result[i * Int{2024}] += count;
     }
   }
+  return result;
 }
 
 auto solve(const auto& input, std::size_t blinks) {
-  std::forward_list<Int> stones{input.cbegin(), input.cend()};
-  for (std::size_t i{}; i != blinks; ++i) {
-    std::println("{}", i);
-    blink(stones);
+  std::map<Int, std::size_t> stones;
+  for (const auto i : input) {
+    stones[i] += 1UZ;
   }
-  return std::ranges::distance(stones);
+  for (std::size_t i{}; i != blinks; ++i) {
+    stones = blink(stones);
+  }
+  return std::ranges::fold_left(std::ranges::views::values(stones), std::size_t{}, std::plus<>{});
 }
 
 auto solve_part1(const auto& input) { return solve(input, 25UZ); }
