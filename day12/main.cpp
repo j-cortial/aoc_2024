@@ -3,10 +3,12 @@
 #include <cassert>
 #include <cstdint>
 #include <fstream>
+#include <map>
 #include <optional>
 #include <print>
 #include <ranges>
 #include <set>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -19,6 +21,14 @@ struct Loc {
 
   auto operator<=>(const Loc& other) const = default;
 };
+
+auto operator+(const Loc& left, const Loc& right) {
+  return Loc{.row = left.row + right.row, .col = left.col + right.col};
+}
+
+auto operator-(const Loc& left, const Loc& right) {
+  return Loc{.row = left.row - right.row, .col = left.col - right.col};
+}
 
 class Field {
  public:
@@ -62,14 +72,64 @@ constexpr std::array<Loc, 4> moves{
 
 struct Region {
   std::set<Loc> tiles;
-  std::uint64_t perimeter_length;
+  std::map<Loc, std::vector<Loc>> inner_perimeter;
+  std::map<Loc, std::vector<Loc>> outer_perimeter;
 
-  auto price() const { return tiles.size() * perimeter_length; }
+  auto price() const;
+  auto discount_price() const;
 };
 
+auto Region::price() const {
+  return std::ranges::fold_left(std::ranges::views::values(inner_perimeter), 0UZ,
+                                [](const auto acc, const auto& x) { return acc + x.size(); }) *
+         tiles.size();
+}
+
+auto Region::discount_price() const {
+  const auto are_opposite = [](const Loc& a, const Loc& b) {
+    const Loc delta = a - b;
+    return std::max(std::abs(delta.row), std::abs(delta.col)) == Idx{2};
+  };
+  const auto corner_count = [&](std::span<const Loc> boundaries) {
+    if (boundaries.size() == 4UZ) {
+      return 4UZ;
+    }
+    if (boundaries.size() == 2UZ && are_opposite(boundaries[0], boundaries[1])) {
+      return 0UZ;
+    }
+    return boundaries.size() - 1UZ;
+  };
+
+  const auto false_corner_count = [&](const std::pair<const Loc, std::vector<Loc>>& entry,
+                                      const std::map<Loc, std::vector<Loc>>& dual) {
+    return std::ranges::count_if(
+        std::ranges::views::cartesian_product(std::ranges::views::all(entry.second),
+                                              std::ranges::views::all(entry.second)),
+        [&](const auto& p) {
+          if (std::get<0>(p) >= std::get<1>(p) || are_opposite(std::get<0>(p), std::get<1>(p))) {
+            return false;
+          }
+          const Loc diagonal = std::get<0>(p) + (std::get<1>(p) - entry.first);
+          return std::ranges::contains(dual.find(std::get<0>(p))->second, diagonal) &&
+                 std::ranges::contains(dual.find(std::get<1>(p))->second, diagonal);
+        });
+  };
+
+  return (std::ranges::fold_left(
+              std::ranges::views::values(inner_perimeter), 0UZ,
+              [&](const auto acc, const auto& x) { return acc + corner_count(x); }) +
+          std::ranges::fold_left(
+              std::ranges::views::values(outer_perimeter), 0UZ,
+              [&](const auto acc, const auto& x) { return acc + corner_count(x); }) -
+          std::ranges::fold_left(std::ranges::views::all(outer_perimeter), 0UZ,
+                                 [&](const auto acc, const auto& x) {
+                                   return acc + false_corner_count(x, inner_perimeter);
+                                 })) *
+         tiles.size();
+}
+
 auto compute_region(const Field& field, Loc start) {
-  std::set<Loc> tiles{start};
-  std::uint64_t perimeter_length{};
+  Region result{.tiles = {start}, .inner_perimeter = {}, .outer_perimeter = {}};
 
   std::vector<Loc> front{start};
   const auto region_crop = *field[start];
@@ -78,22 +138,23 @@ auto compute_region(const Field& field, Loc start) {
     const auto loc = front.back();
     front.pop_back();
     for (const Loc& m : moves) {
-      const Loc neighbor{.row = loc.row + m.row, .col = loc.col + m.col};
-      if (!tiles.contains(neighbor)) {
-        const auto crop = field[neighbor];
-        if (crop == region_crop) {
-          tiles.insert(neighbor);
+      const Loc neighbor = loc + m;
+      if (!result.tiles.contains(neighbor)) {
+        if (field[neighbor] == region_crop) {
+          result.tiles.insert(neighbor);
           front.push_back(neighbor);
         } else {
-          perimeter_length += std::uint64_t{1};
+          result.inner_perimeter[loc].push_back(neighbor);
+          result.outer_perimeter[neighbor].push_back(loc);
         }
       }
     }
   }
-  return Region{.tiles = tiles, .perimeter_length = perimeter_length};
+  return result;
 }
 
-auto solve_part1(const Field& input) {
+template <auto cost_function>
+auto solve(const Field& input) {
   std::uint64_t price{};
   std::set<Loc> done;
 
@@ -106,7 +167,7 @@ auto solve_part1(const Field& input) {
   auto it = all_tiles.begin();
   while (it != all_tiles.end()) {
     auto region = compute_region(input, *it++);
-    price += region.price();
+    price += (region.*cost_function)();
 
     done.merge(region.tiles);
     while (it != all_tiles.end() && done.contains(*it)) {
@@ -117,7 +178,8 @@ auto solve_part1(const Field& input) {
   return price;
 }
 
-auto solve_part2(const auto& input) { return 0; }
+auto solve_part1(const auto& input) { return solve<&Region::price>(input); }
+auto solve_part2(const auto& input) { return solve<&Region::discount_price>(input); }
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
