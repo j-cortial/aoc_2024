@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <fstream>
@@ -6,7 +7,6 @@
 #include <ranges>
 #include <set>
 #include <string_view>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -29,11 +29,6 @@ auto operator-(const Loc& left, const Loc& right) {
   return Loc{.row = left.row - right.row, .col = left.col - right.col};
 }
 
-struct Warehouse {
-  std::set<Loc> walls;
-  std::set<Loc> crates;
-};
-
 constexpr std::array<Loc, 4> moves{
     {{.row = -1, .col = 0}, {.row = 1, .col = 0}, {.row = 0, .col = -1}, {.row = 0, .col = 1}}};
 
@@ -44,9 +39,16 @@ enum class Instruction : std::uint8_t {
   right,
 };
 
+struct Input {  // NOLINT(cppcoreguidelines-pro-type-member-init)
+  std::set<Loc> walls;
+  std::set<Loc> crates;
+  Loc robot;
+  std::vector<Instruction> instructions;
+};
+
 auto parse_input(std::istream&& in) {
-  std::tuple<Warehouse, Loc, std::vector<Instruction>> result;
-  auto& [warehouse, robot_start, instructions] = result;
+  Input result;
+  auto& [walls, crates, robot, instructions] = result;
 
   const auto content =
       std::views::istream<char>(in >> std::noskipws) | std::ranges::to<std::vector>();
@@ -68,13 +70,13 @@ auto parse_input(std::istream&& in) {
   for (const auto [loc, tile] : tiles) {
     switch (tile) {
       case '#':
-        warehouse.walls.insert(loc);
+        walls.insert(loc);
         break;
       case 'O':
-        warehouse.crates.insert(loc);
+        crates.insert(loc);
         break;
       case '@':
-        robot_start = loc;
+        robot = loc;
         break;
       case '.':
         break;
@@ -85,7 +87,8 @@ auto parse_input(std::istream&& in) {
 
   auto instruction_section = *section++;
 
-  for (const char c : instruction_section) {
+  for (const char c :
+       instruction_section | std::views::filter([](const char c) { return c != '\n'; })) {
     const auto i = [](const char c) {
       switch (c) {
         case '^':
@@ -106,7 +109,34 @@ auto parse_input(std::istream&& in) {
   return result;
 }
 
-auto solve_part1(const auto& input) { return 0; }
+auto gps_coordinates(Loc loc) { return (Idx{100} * loc.row) + loc.col; }
+
+auto solve_part1(const auto& input) {
+  const auto& [walls, initial_crates, robot_start, instructions] = input;
+
+  auto crates = initial_crates;
+  auto robot = robot_start;
+
+  for (const Loc move : std::views::transform(
+           instructions, [](const auto i) { return moves[std::to_underlying(i)]; })) {
+    const auto target = robot + move;
+    auto space = target;
+    std::vector<std::set<Loc>::iterator> line;
+    for (auto it = crates.find(space); it != crates.end();
+         space = space + move, it = crates.find(space)) {
+      line.push_back(it);
+    }
+    if (!walls.contains(space)) {
+      if (!line.empty()) {
+        crates.insert(*line.back() + move);
+        crates.erase(line.front());
+      }
+      robot = target;
+    }
+  }
+  return std::ranges::fold_left(
+      crates, 0UZ, [](const auto acc, const Loc& x) { return acc + gps_coordinates(x); });
+}
 
 auto solve_part2(const auto& input) { return 0; }
 
