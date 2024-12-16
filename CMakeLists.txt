@@ -12,7 +12,7 @@ add_library(asan-target INTERFACE)
 target_compile_options(asan-target INTERFACE -fsanitize=address -fno-omit-frame-pointer)
 target_link_options(asan-target INTERFACE -fsanitize=address)
 
-set(days day01 day02 day03 day04 day05 day06 day07 day08 day09 day10 day11 day12)
+set(days day01 day02 day03 day04 day05 day06 day07 day08 day09 day10 day11 day12 day15)
 
 foreach(day ${days})
   add_executable(${day} ${day}/main.cpp)
@@ -20,5 +20,5 @@ foreach(day ${days})
   set_property(TARGET ${day} PROPERTY RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${day})
   target_link_libraries(${day} asan-target)
 
-  file(COPY ${day}/input.txt DESTINATION ${day})
+  configure_file(${day}/input.txt ${day} COPYONLY)
 endforeach()
