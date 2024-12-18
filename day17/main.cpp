@@ -197,7 +197,13 @@ auto solve_part1(const Input& input) {
          std::ranges::to<std::string>();
 }
 
-auto solve_part2(const Input& input) { return 0; }
+auto solve_part2(const Input& input) {
+  return *std::ranges::find_if(std::views::iota(RegisterValue{0}), [&input](const RegisterValue v) {
+    auto register_values = input.register_values;
+    register_values[std::to_underlying(Register::a)] = v;
+    return input.program == Computer{register_values, input.program}.output();
+  });
+}
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
