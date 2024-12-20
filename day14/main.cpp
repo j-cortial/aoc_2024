@@ -8,6 +8,7 @@
 #include <print>
 #include <ranges>
 #include <string>
+#include <utility>
 #include <vector>
 
 using Idx = std::int32_t;
@@ -84,6 +85,12 @@ auto Area::quadrant(Loc tile) const -> std::optional<std::uint_fast8_t> {
           (std::uint_fast8_t(tile.col > (lower_right_.col / Idx{2})) * std::uint_fast8_t(2))};
 }
 
+const auto transform_filter = []<typename R, typename P>(R&& r, P&& p) {
+  return std::views::transform(std::forward<R>(r), std::forward<P>(p)) |
+         std::views::filter([](const auto& maybe) { return bool(maybe); }) |
+         std::views::transform([](const auto& maybe) { return *maybe; });
+};
+
 auto solve_part1(const auto& input) {
   const Area area{{.row = 103, .col = 101}};
   auto robots = input;
@@ -93,14 +100,9 @@ auto solve_part1(const auto& input) {
     }
   }
 
-  auto quadrants =
-      std::views::transform(robots,
-                            [&area](const Robot& robot) { return area.quadrant(robot.pos); }) |
-      std::views::filter([](const auto& maybe_quadrant) { return maybe_quadrant.has_value(); }) |
-      std::views::transform([](const auto& maybe_quadrant) { return *maybe_quadrant; });
-
   std::array<std::size_t, 4> counts{};
-  for (const auto quadrant : quadrants) {
+  for (const auto quadrant :
+       transform_filter(robots, [&area](const Robot& robot) { return area.quadrant(robot.pos); })) {
     ++counts[quadrant];
   }
 
