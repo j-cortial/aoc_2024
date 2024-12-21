@@ -109,7 +109,27 @@ auto solve_part1(const auto& input) {
   return std::ranges::fold_left(counts, 1UZ, std::multiplies<>{});
 }
 
-auto solve_part2(const auto& input) { return 0; }
+auto solve_part2(const auto& input) {
+  const Area area{{.row = 103, .col = 101}};
+  auto robots = input;
+
+  auto all_distinct_positions = [](const auto& robots) {
+    auto positions = std::views::transform(robots, [](const auto& r) { return r.pos; }) |
+                     std::ranges::to<std::vector>();
+    std::ranges::sort(positions);
+    return std::ranges::adjacent_find(positions) == end(positions);
+  };
+
+  auto i = 0;
+  while (!all_distinct_positions(robots)) {
+    for (auto& robot : robots) {
+      robot.pos = area.tile(robot.pos + robot.vel);
+    }
+    ++i;
+  }
+
+  return i;
+}
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
