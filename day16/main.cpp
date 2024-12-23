@@ -1,10 +1,14 @@
 #include <array>
 #include <cstdint>
 #include <fstream>
+#include <functional>
 #include <ios>
+#include <limits>
 #include <print>
+#include <queue>
 #include <ranges>
 #include <set>
+#include <utility>
 #include <vector>
 
 using Idx = std::int32_t;
@@ -58,16 +62,62 @@ auto parse_input(std::istream&& in) {
 }
 
 constexpr std::array<Loc, 4> moves{
-    {{.row = -1, .col = 0}, {.row = 1, .col = 0}, {.row = 0, .col = -1}, {.row = 0, .col = 1}}};
+    {{.row = 0, .col = 1}, {.row = -1, .col = 0}, {.row = 0, .col = -1}, {.row = 1, .col = 0}}};
 
-enum class Instruction : std::uint8_t {
-  up,
-  down,
-  left,
-  right,
+enum class Direction : std::uint8_t {
+  east,
+  north,
+  west,
+  south,
 };
 
-auto solve_part1(const auto& input) { return 0; }
+auto turn_left(Direction dir) { return static_cast<Direction>((std::to_underlying(dir) + 1) % 4); }
+
+auto turn_right(Direction dir) { return static_cast<Direction>((std::to_underlying(dir) + 3) % 4); }
+
+struct State {
+  Loc loc;
+  Direction dir;
+
+  auto operator<=>(const State&) const = default;
+};
+
+using Cost = std::uint64_t;
+
+auto transitions(const std::set<Loc>& open_tiles, const State& state) {
+  std::vector<std::pair<Cost, State>> result;
+  const auto next_tile = state.loc + moves[std::to_underlying(state.dir)];
+  if (open_tiles.contains(next_tile)) {
+    result.emplace_back(Cost{1}, State{.loc{next_tile}, .dir{state.dir}});
+  }
+  result.emplace_back(Cost{1000}, State{.loc = state.loc, .dir = turn_left(state.dir)});
+  result.emplace_back(Cost{1000}, State{.loc = state.loc, .dir = turn_right(state.dir)});
+  return result;
+}
+
+auto solve_part1(const auto& input) {
+  std::set<State> explored;
+
+  using Element = std::pair<Cost, State>;
+  std::priority_queue<Element, std::vector<Element>, std::greater<>> front;
+  front.emplace(Cost{}, State{input.start, Direction::east});
+
+  while (!front.empty()) {
+    const auto [cost, state] = front.top();
+    front.pop();
+    if (state.loc == input.finish) {
+      return cost;
+    }
+    explored.insert(state);
+    for (const auto& [candidate_cost, candidate_state] : transitions(input.open_tiles, state)) {
+      if (!explored.contains(candidate_state)) {
+        front.emplace(cost + candidate_cost, candidate_state);
+      }
+    }
+  }
+
+  return std::numeric_limits<Cost>::max();
+}
 
 auto solve_part2(const auto& input) { return 0; }
 
