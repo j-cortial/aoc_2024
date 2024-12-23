@@ -123,58 +123,67 @@ auto solve_part1(const auto& input) {
 }
 
 auto solve_part2(const auto& input) {
-  std::map<State, Cost> explored;
+  std::set<State> end_states;
   std::multimap<State, State> predecessors;
 
-  using Element = std::pair<Cost, State>;
-  std::priority_queue<Element, std::vector<Element>, std::greater<>> front;
+  {
+    std::map<State, Cost> explored;
 
-  const State initial_state{input.start, Direction::east};
-  explored.emplace(initial_state, Cost{});
-  front.emplace(Cost{}, initial_state);
+    using Element = std::pair<Cost, State>;
+    std::priority_queue<Element, std::vector<Element>, std::greater<>> front;
 
-  std::set<State> end_states;
+    const State initial_state{input.start, Direction::east};
+    explored.emplace(initial_state, Cost{});
+    front.emplace(Cost{}, initial_state);
 
-  std::optional<Cost> lowest_cost;
-  while (!front.empty()) {
-    const auto [cost, state] = front.top();
-    front.pop();
-    if (lowest_cost.has_value() && cost > *lowest_cost) {
-      break;
-    }
-    if (state.loc == input.finish) {
-      lowest_cost = cost;
-      end_states.insert(state);
-    } else {
-      for (const auto& [additional_cost, candidate_state] : transitions(input.open_tiles, state)) {
-        const auto candidate_cost = cost + additional_cost;
-        const auto it = explored.lower_bound(candidate_state);
-        if (it == explored.end() || it->first != candidate_state) {
-          explored.insert(it, {candidate_state, candidate_cost});
-          predecessors.emplace(candidate_state, state);
-          front.emplace(candidate_cost, candidate_state);
-        } else if (it->second == candidate_cost &&
-                   !std::ranges::contains(
-                       std::views::transform(
-                           std::ranges::equal_range(predecessors, candidate_state, std::less<>{},
-                                                    [](const auto& p) { return p.first; }),
-                           [](const auto& p) { return p.second; }),
-                       state)) {
-          predecessors.emplace(candidate_state, state);
+    std::optional<Cost> lowest_cost;
+    while (!front.empty()) {
+      const auto [cost, state] = front.top();
+      front.pop();
+      if (lowest_cost.has_value() && cost > *lowest_cost) {
+        break;
+      }
+      if (state.loc == input.finish) {
+        lowest_cost = cost;
+        end_states.insert(state);
+      } else {
+        for (const auto& [additional_cost, candidate_state] :
+             transitions(input.open_tiles, state)) {
+          const auto candidate_cost = cost + additional_cost;
+          const auto it = explored.lower_bound(candidate_state);
+          if (it == explored.end() || it->first != candidate_state) {
+            explored.insert(it, {candidate_state, candidate_cost});
+            predecessors.emplace(candidate_state, state);
+            front.emplace(candidate_cost, candidate_state);
+          } else if (it->second == candidate_cost &&
+                     !std::ranges::contains(
+                         std::views::transform(
+                             std::ranges::equal_range(predecessors, candidate_state, std::less<>{},
+                                                      [](const auto& p) { return p.first; }),
+                             [](const auto& p) { return p.second; }),
+                         state)) {
+            predecessors.emplace(candidate_state, state);
+          }
         }
       }
     }
   }
 
   std::set<Loc> result;
-  std::vector<State> back_track(end_states.begin(), end_states.end());
-  while (!back_track.empty()) {
-    const auto state = back_track.back();
-    back_track.pop_back();
-    result.insert(state.loc);
-    for (const auto& predecessor : std::ranges::equal_range(
-             predecessors, state, std::less<>{}, [](const auto& p) { return p.first; })) {
-      back_track.push_back(predecessor.second);
+  {
+    std::set<State> explored;
+    std::vector<State> back_track(end_states.begin(), end_states.end());
+    while (!back_track.empty()) {
+      const auto state = back_track.back();
+      back_track.pop_back();
+      result.insert(state.loc);
+      for (const auto& predecessor : std::ranges::equal_range(
+               predecessors, state, std::less<>{}, [](const auto& p) { return p.first; })) {
+        const auto inserted = explored.insert(predecessor.second).second;
+        if (inserted) {
+          back_track.push_back(predecessor.second);
+        }
+      }
     }
   }
 
