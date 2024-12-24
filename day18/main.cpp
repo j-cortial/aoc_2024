@@ -1,14 +1,18 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <format>
 #include <fstream>
 #include <functional>
 #include <ios>
+#include <iterator>
 #include <limits>
+#include <optional>
 #include <print>
 #include <queue>
 #include <ranges>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -52,8 +56,8 @@ auto parse_input(std::istream&& in) {
 
 class Memory {
  public:
-  Memory(Loc lower_right, auto&& bad_blocks)
-      : lower_right_(lower_right), bad_blocks_(begin(bad_blocks), end(bad_blocks)) {}
+  Memory(Loc lower_right, std::span<const Loc> bad_blocks)
+      : lower_right_(lower_right), bad_blocks_(bad_blocks.begin(), bad_blocks.end()) {}
 
   auto block_is_open(Loc loc) const {
     return loc.row >= Idx{} && loc.col >= Idx{} && loc.row <= lower_right_.row &&
@@ -78,10 +82,9 @@ struct Candidate {
   auto operator<=>(const Candidate&) const = default;
 };
 
-auto solve_part1(const auto& input) {
-  const Idx size{70};
+auto solve_astar(std::span<const Loc> bad_blocks, Idx size) -> std::optional<Cost> {
   const Loc exit{.row = size, .col = size};
-  const Memory memory{exit, std::views::take(input, 1024)};
+  const Memory memory{exit, bad_blocks};
 
   const Loc start{.row = Idx{}, .col = Idx{}};
   std::set<Loc> visited;
@@ -92,7 +95,7 @@ auto solve_part1(const auto& input) {
   while (!candidates.empty()) {
     const auto [_, cost, loc] = candidates.top();
     if (loc == exit) {
-      return cost;
+      return {cost};
     }
     candidates.pop();
 
@@ -106,10 +109,26 @@ auto solve_part1(const auto& input) {
     }
   }
 
-  return std::numeric_limits<Cost>::max();
+  return std::nullopt;
 }
 
-auto solve_part2(const auto& input) { return 0; }
+auto solve_part1(const auto& input) {
+  const auto result = solve_astar({input.cbegin(), std::next(input.cbegin(), 1024)}, Idx{70});
+  return result.has_value() ? *result : std::numeric_limits<Cost>::max();
+}
+
+auto solve_part2(const auto& input) {
+  const auto start_index = 1024UZ;
+  const auto index =
+      start_index +
+      std::ranges::distance(
+          std::views::iota(start_index + 1UZ) | std::views::take_while([&input](const auto count) {
+            return solve_astar({input.cbegin(), std::next(input.cbegin(), count)}, Idx{70})
+                .has_value();
+          }));
+  const auto loc = input[index];
+  return std::format("{},{}", loc.row, loc.col);
+}
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
