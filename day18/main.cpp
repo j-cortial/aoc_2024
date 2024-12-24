@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <format>
@@ -75,8 +77,8 @@ constexpr std::array<Loc, 4> moves{
 using Cost = std::uint32_t;
 
 struct Candidate {
-  Cost heuristic_cost;
-  Cost cost;
+  Cost estimated_cost;
+  Cost current_cost;
   Loc loc;
 
   auto operator<=>(const Candidate&) const = default;
@@ -102,8 +104,10 @@ auto solve_astar(std::span<const Loc> bad_blocks, Idx size) -> std::optional<Cos
     for (const auto& move : moves) {
       const auto target = loc + move;
       if (memory.block_is_open(target) && !visited.contains(target)) {
-        const Cost estimated_cost = cost + Cost{1} + manhattan_length(exit - target);
-        candidates.emplace(estimated_cost, cost + Cost{1}, target);
+        const Cost new_cost = cost + Cost{1};
+        const Cost heuristic_cost = manhattan_length(exit - target);
+        const Cost estimated_cost = new_cost + heuristic_cost;
+        candidates.emplace(estimated_cost, new_cost, target);
         visited.insert(target);
       }
     }
@@ -119,15 +123,14 @@ auto solve_part1(const auto& input) {
 
 auto solve_part2(const auto& input) {
   const auto start_index = 1024UZ;
-  const auto index =
-      start_index +
-      std::ranges::distance(
-          std::views::iota(start_index + 1UZ) | std::views::take_while([&input](const auto count) {
-            return solve_astar({input.cbegin(), std::next(input.cbegin(), count)}, Idx{70})
-                .has_value();
-          }));
-  const auto loc = input[index];
-  return std::format("{},{}", loc.row, loc.col);
+  auto res = std::ranges::upper_bound(std::next(input.cbegin(), start_index), input.cend(), true,
+                                      std::greater<>{}, [&input](const auto& last) {
+                                        const std::span<const Loc> bad_blocks{input.data(),
+                                                                              std::next(&last)};
+                                        return solve_astar(bad_blocks, Idx{70}).has_value();
+                                      });
+  assert(res != input.cend());
+  return std::format("{},{}", res->row, res->col);
 }
 
 auto main() -> int {
