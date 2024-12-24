@@ -1,12 +1,18 @@
+#include <array>
+#include <cmath>
 #include <cstdint>
 #include <fstream>
+#include <functional>
 #include <ios>
+#include <limits>
 #include <print>
+#include <queue>
 #include <ranges>
+#include <set>
 #include <string>
 #include <vector>
 
-using Idx = std::int_fast16_t;
+using Idx = std::int32_t;
 
 struct Loc {
   Idx row;
@@ -22,6 +28,8 @@ auto operator+(const Loc& left, const Loc& right) {
 auto operator-(const Loc& left, const Loc& right) {
   return Loc{.row = left.row - right.row, .col = left.col - right.col};
 }
+
+auto manhattan_length(const Loc& loc) { return std::abs(loc.row) + std::abs(loc.col); }
 
 auto parse_input(std::istream&& in) {
   return std::views::istream<char>(in >> std::noskipws) | std::views::lazy_split('\n') |
@@ -42,7 +50,64 @@ auto parse_input(std::istream&& in) {
          std::ranges::to<std::vector>();
 }
 
-auto solve_part1(const auto& input) { return 0; }
+class Memory {
+ public:
+  Memory(Loc lower_right, auto&& bad_blocks)
+      : lower_right_(lower_right), bad_blocks_(begin(bad_blocks), end(bad_blocks)) {}
+
+  auto block_is_open(Loc loc) const {
+    return loc.row >= Idx{} && loc.col >= Idx{} && loc.row <= lower_right_.row &&
+           loc.col <= lower_right_.col && !bad_blocks_.contains(loc);
+  }
+
+ private:
+  Loc lower_right_;
+  std::set<Loc> bad_blocks_;
+};
+
+constexpr std::array<Loc, 4> moves{
+    {{.row = 0, .col = 1}, {.row = -1, .col = 0}, {.row = 0, .col = -1}, {.row = 1, .col = 0}}};
+
+using Cost = std::uint32_t;
+
+struct Candidate {
+  Cost heuristic_cost;
+  Cost cost;
+  Loc loc;
+
+  auto operator<=>(const Candidate&) const = default;
+};
+
+auto solve_part1(const auto& input) {
+  const Idx size{70};
+  const Loc exit{.row = size, .col = size};
+  const Memory memory{exit, std::views::take(input, 1024)};
+
+  const Loc start{.row = Idx{}, .col = Idx{}};
+  std::set<Loc> visited;
+  visited.insert(start);
+  std::priority_queue<Candidate, std::vector<Candidate>, std::greater<>> candidates;
+  candidates.emplace(manhattan_length(exit), Cost{}, start);
+
+  while (!candidates.empty()) {
+    const auto [_, cost, loc] = candidates.top();
+    if (loc == exit) {
+      return cost;
+    }
+    candidates.pop();
+
+    for (const auto& move : moves) {
+      const auto target = loc + move;
+      if (memory.block_is_open(target) && !visited.contains(target)) {
+        const Cost estimated_cost = cost + Cost{1} + manhattan_length(exit - target);
+        candidates.emplace(estimated_cost, cost + Cost{1}, target);
+        visited.insert(target);
+      }
+    }
+  }
+
+  return std::numeric_limits<Cost>::max();
+}
 
 auto solve_part2(const auto& input) { return 0; }
 
