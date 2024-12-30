@@ -1,8 +1,10 @@
+#include <algorithm>
 #include <cassert>
 #include <cctype>
 #include <charconv>
 #include <fstream>
 #include <ios>
+#include <optional>
 #include <print>
 #include <ranges>
 #include <string_view>
@@ -47,8 +49,7 @@ auto parse_input(std::istream&& in) {
   const auto content =
       std::views::istream<char>(in >> std::noskipws) | std::ranges::to<std::vector>();
 
-  return std::views::split(content, "\n\n"sv) |
-         std::views::transform([](const auto& block) {
+  return std::views::split(content, "\n\n"sv) | std::views::transform([](const auto& block) {
            auto locs =
                std::views::split(block, '\n') | std::views::transform([](const auto& line) {
                  auto coords = std::views::join(
@@ -75,7 +76,39 @@ auto parse_input(std::istream&& in) {
          std::ranges::to<std::vector>();
 }
 
-auto solve_part1(const auto& input) { return 0; }
+auto button_a_dominates(const Game& game) {
+  return game.button_a.row >= 3 * game.button_b.row && game.button_a.col >= 3 * game.button_b.col;
+}
+
+using PushCount = std::int32_t;
+using TokenCount = std::int32_t;
+
+auto operator*(Idx factor, const Loc& base) {
+  return Loc{.row = base.row * factor, .col = base.col * factor};
+}
+
+auto operator/(const Loc& left, const Loc& right) {
+  return std::min(left.row / right.row, left.col / right.col);
+}
+
+auto least_tokens_to_win(const Game& game) -> std::optional<TokenCount> {
+  assert(!button_a_dominates(game));
+  for (PushCount b_pushes = game.target / game.button_b; b_pushes >= PushCount{}; --b_pushes) {
+    const auto remainder = game.target - (b_pushes * game.button_b);
+    const PushCount a_pushes = remainder / game.button_a;
+    if (remainder == a_pushes * game.button_a) {
+      return TokenCount{(3 * a_pushes) + b_pushes};
+    }
+  }
+  return std::nullopt;
+}
+
+auto solve_part1(const auto& input) {
+  return std::ranges::fold_left(input, TokenCount{}, [](const TokenCount acc, const Game& game) {
+    const auto maybe_tokens = least_tokens_to_win(game);
+    return acc + (maybe_tokens.has_value() ? *maybe_tokens : TokenCount{});
+  });
+}
 
 auto solve_part2(const auto& input) { return 0; }
 
