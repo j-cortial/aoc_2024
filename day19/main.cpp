@@ -104,47 +104,6 @@ auto parse_input(std::istream&& in) {
   return result;
 }
 
-auto is_design_possible(const std::span<const Pattern> patterns, const Design& design) {
-  std::vector<Pattern> prefixes{{}};
-
-  for (const Color c : design) {
-    std::vector<Pattern> next_prefixes;
-
-    for (Pattern& candidate : prefixes) {
-      candidate.push_back(c);
-      if (std::ranges::contains(patterns, candidate)) {
-        next_prefixes.emplace_back();
-      }
-      if (std::ranges::any_of(
-              patterns | std::views::filter([&](const auto& p) { return p != candidate; }),
-              [&](const auto& p) {
-                const auto [it_p, it_c] = std::ranges::mismatch(p, candidate);
-                return it_c != candidate.end();
-              })) {
-        next_prefixes.push_back(std::move(candidate));
-      }
-    }
-
-    if (next_prefixes.empty()) {
-      return false;
-    }
-
-    std::ranges::sort(next_prefixes);
-    auto spurious = std::ranges::unique(next_prefixes);
-    next_prefixes.erase(std::ranges::begin(spurious), std::ranges::end(spurious));
-
-    prefixes = next_prefixes;
-  }
-
-  return std::ranges::contains(prefixes, Pattern{});
-}
-
-auto solve_part1(const auto& input) {
-  return std::ranges::count_if(input.designs, [&](const Design& design) {
-    return is_design_possible(input.patterns, design);
-  });
-}
-
 auto possible_arrangements(const std::span<const Pattern> patterns, const Design& design) {
   std::map<Pattern, std::uint64_t> prefixes{{{}, std::uint64_t(1)}};
 
@@ -180,6 +139,16 @@ auto possible_arrangements(const std::span<const Pattern> patterns, const Design
 
   const auto result = prefixes.find({});
   return result != prefixes.end() ? result->second : std::uint64_t{};
+}
+
+auto is_design_possible(const std::span<const Pattern> patterns, const Design& design) {
+  return possible_arrangements(patterns, design) > std::uint64_t{};
+}
+
+auto solve_part1(const auto& input) {
+  return std::ranges::count_if(input.designs, [&](const Design& design) {
+    return is_design_possible(input.patterns, design);
+  });
 }
 
 auto solve_part2(const auto& input) {
