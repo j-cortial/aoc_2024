@@ -4,6 +4,7 @@
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <map>
 #include <optional>
 #include <print>
 #include <ranges>
@@ -144,7 +145,49 @@ auto solve_part1(const auto& input) {
   });
 }
 
-auto solve_part2(const auto& input) { return 0; }
+auto possible_arrangements(const std::span<const Pattern> patterns, const Design& design) {
+  std::map<Pattern, std::uint64_t> prefixes{{{}, std::uint64_t(1)}};
+
+  for (const Color c : design) {
+    std::map<Pattern, std::uint64_t> next_prefixes;
+
+    for (const auto& [prefix, count] : prefixes) {
+      const auto candidate = [&] {
+        Pattern result;
+        result.reserve(prefix.size() + 1UZ);
+        result.assign(prefix.begin(), prefix.end());
+        result.push_back(c);
+        return result;
+      }();
+      for (const auto& pattern : patterns) {
+        const auto [it_p, it_c] = std::ranges::mismatch(pattern, candidate);
+        if (it_c == candidate.end()) {
+          if (it_p == pattern.end()) {
+            next_prefixes[{}] += count;
+          } else {
+            next_prefixes[candidate] = count;
+          }
+        }
+      }
+    }
+
+    if (next_prefixes.empty()) {
+      return std::uint64_t{};
+    }
+
+    prefixes = next_prefixes;
+  }
+
+  const auto result = prefixes.find({});
+  return result != prefixes.end() ? result->second : std::uint64_t{};
+}
+
+auto solve_part2(const auto& input) {
+  return std::ranges::fold_left(input.designs, std::uint64_t{},
+                                [&](const auto acc, const Design& design) {
+                                  return acc + possible_arrangements(input.patterns, design);
+                                });
+}
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
