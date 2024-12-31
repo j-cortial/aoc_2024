@@ -105,24 +105,24 @@ auto parse_input(std::istream&& in) {
 }
 
 auto possible_arrangements(const std::span<const Pattern> patterns, const Design& design) {
-  std::map<Pattern, std::uint64_t> prefixes{{{}, std::uint64_t(1)}};
+  using Prefix = std::span<const Color>;
+  auto prefix_less = [](const Prefix& left, const Prefix& right) {
+    return std::ranges::lexicographical_compare(left, right);
+  };
 
-  for (const Color c : design) {
-    std::map<Pattern, std::uint64_t> next_prefixes;
+  std::map<Prefix, std::uint64_t, decltype(prefix_less)> prefixes{
+      {{design.begin(), design.begin()}, std::uint64_t(1)}};
+
+  for (auto it = design.begin(); it != design.end(); ++it) {
+    decltype(prefixes) next_prefixes;
 
     for (const auto& [prefix, count] : prefixes) {
-      const auto candidate = [&] {
-        Pattern result;
-        result.reserve(prefix.size() + 1UZ);
-        result.assign(prefix.begin(), prefix.end());
-        result.push_back(c);
-        return result;
-      }();
+      const Prefix candidate{prefix.begin(), std::next(prefix.end())};
       for (const auto& pattern : patterns) {
         const auto [it_p, it_c] = std::ranges::mismatch(pattern, candidate);
         if (it_c == candidate.end()) {
           if (it_p == pattern.end()) {
-            next_prefixes[{}] += count;
+            next_prefixes[{std::next(it), std::next(it)}] += count;
           } else {
             next_prefixes[candidate] = count;
           }
@@ -137,7 +137,7 @@ auto possible_arrangements(const std::span<const Pattern> patterns, const Design
     prefixes = next_prefixes;
   }
 
-  const auto result = prefixes.find({});
+  const auto result = prefixes.find({design.end(), design.end()});
   return result != prefixes.end() ? result->second : std::uint64_t{};
 }
 
