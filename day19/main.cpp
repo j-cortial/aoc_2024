@@ -1,11 +1,15 @@
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <fstream>
 #include <ios>
+#include <iostream>
 #include <optional>
 #include <print>
 #include <ranges>
+#include <span>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 using namespace std::string_view_literals;
@@ -35,8 +39,34 @@ auto parse_color(const char c) -> std::optional<Color> {
   }
 }
 
+auto operator<<(std::ostream& out, const Color c) -> auto& {
+  const char ch = [&]() {
+    switch (c) {
+      case Color::white:
+        return 'w';
+      case Color::blue:
+        return 'u';
+      case Color::black:
+        return 'b';
+      case Color::red:
+        return 'r';
+      case Color::green:
+        return 'g';
+    }
+    std::unreachable();
+  }();
+  return out << ch;
+}
+
 using Pattern = std::vector<Color>;
 using Design = std::vector<Color>;
+
+auto operator<<(std::ostream& out, const Design& design) -> auto& {
+  for (const Color c : design) {
+    out << c;
+  }
+  return out;
+}
 
 struct Input {
   std::vector<Pattern> patterns;
@@ -73,7 +103,46 @@ auto parse_input(std::istream&& in) {
   return result;
 }
 
-auto solve_part1(const auto& input) { return 0; }
+auto is_design_possible(const std::span<const Pattern> patterns, const Design& design) {
+  std::vector<Pattern> prefixes{{}};
+
+  for (const Color c : design) {
+    std::vector<Pattern> next_prefixes;
+
+    for (Pattern& candidate : prefixes) {
+      candidate.push_back(c);
+      if (std::ranges::contains(patterns, candidate)) {
+        next_prefixes.emplace_back();
+      }
+      if (std::ranges::any_of(
+              patterns | std::views::filter([&](const auto& p) { return p != candidate; }),
+              [&](const auto& p) {
+                const auto [it_p, it_c] = std::ranges::mismatch(p, candidate);
+                return it_c != candidate.end();
+              })) {
+        next_prefixes.push_back(std::move(candidate));
+      }
+    }
+
+    if (next_prefixes.empty()) {
+      return false;
+    }
+
+    std::ranges::sort(next_prefixes);
+    auto spurious = std::ranges::unique(next_prefixes);
+    next_prefixes.erase(std::ranges::begin(spurious), std::ranges::end(spurious));
+
+    prefixes = next_prefixes;
+  }
+
+  return std::ranges::contains(prefixes, Pattern{});
+}
+
+auto solve_part1(const auto& input) {
+  return std::ranges::count_if(input.designs, [&](const Design& design) {
+    return is_design_possible(input.patterns, design);
+  });
+}
 
 auto solve_part2(const auto& input) { return 0; }
 
