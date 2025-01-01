@@ -58,40 +58,6 @@ auto get_neighbors(const Neighborhoods& neighborhoods, const Computer& computer)
   return std::views::values(std::ranges::subrange(n_it.first, n_it.second));
 }
 
-auto compute_triplets(const std::span<const Link> links) {
-  std::set<std::array<Computer, 3>> result;
-
-  const auto neighborhoods = compute_neighborhoods(links);
-
-  auto computers =
-      std::views::keys(neighborhoods) | std::views::chunk_by(std::equal_to<>{}) |
-      std::views::transform([](const auto& chunk) { return *std::ranges::begin(chunk); });
-  for (const Computer& computer : computers) {
-    auto neighbors = get_neighbors(neighborhoods, computer);
-    for (const Computer& neighbor : neighbors) {
-      auto third_parties = get_neighbors(neighborhoods, neighbor) |
-                           std::views::filter([&](const Computer& third_party) {
-                             return std::ranges::contains(neighbors, third_party);
-                           });
-      for (const Computer& third_party : third_parties) {
-        std::array<Computer, 3> triplet{computer, neighbor, third_party};
-        std::ranges::sort(triplet);
-        result.insert(std::move(triplet));
-      }
-    }
-  }
-
-  return result;
-}
-
-auto solve_part1(const auto& input) {
-  const auto triplets = compute_triplets(input);
-  return std::ranges::count_if(triplets, [](const auto& triplet) {
-    return std::ranges::any_of(triplet,
-                               [](const Computer& member) { return member.starts_with('t'); });
-  });
-}
-
 using Party = std::vector<Computer>;  // Sorted
 
 auto compute_larger_parties(const Neighborhoods& neighborhoods,
@@ -147,6 +113,19 @@ auto compute_pairs(const Neighborhoods& neighborhoods) {
   }
 
   return result;
+}
+auto compute_triplets(const std::span<const Link> links) {
+  const auto neighborhoods = compute_neighborhoods(links);
+  const auto pairs = compute_pairs(neighborhoods);
+  return compute_larger_parties(neighborhoods, pairs);
+}
+
+auto solve_part1(const auto& input) {
+  const auto triplets = compute_triplets(input);
+  return std::ranges::count_if(triplets, [](const auto& triplet) {
+    return std::ranges::any_of(triplet,
+                               [](const Computer& member) { return member.starts_with('t'); });
+  });
 }
 
 auto solve_part2(const auto& input) {
