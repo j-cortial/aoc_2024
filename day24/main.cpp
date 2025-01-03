@@ -1,12 +1,17 @@
+#include <algorithm>
 #include <array>
 #include <cassert>
+#include <charconv>
 #include <fstream>
 #include <ios>
 #include <istream>
+#include <map>
 #include <print>
 #include <ranges>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 using namespace std::string_view_literals;
@@ -89,7 +94,49 @@ auto parse_input(std::istream&& in) {
                .gates = gates | std::ranges::to<std::vector>()};
 }
 
-auto solve_part1(const auto& input) { return 0; }
+auto solve_part1(const auto& input) {
+  auto values = std::views::transform(input.wire_statuses,
+                                      [](const WireStatus& s) {
+                                        return std::pair<const Wire, bool>(s.wire, s.value);
+                                      }) |
+                std::ranges::to<std::map>();
+
+  auto gates = input.gates;
+  for (;;) {
+    decltype(gates) new_gates;
+
+    for (Gate& gate : gates) {
+      const auto left = values.find(gate.inputs[0]);
+      if (left != values.end()) {
+        const auto right = values.find(gate.inputs[1]);
+        if (right != values.end()) {
+          values.emplace(std::move(gate.output), apply(gate.op, left->second, right->second));
+          continue;
+        }
+      }
+      new_gates.push_back(std::move(gate));
+    }
+
+    if (gates.size() == new_gates.size()) {
+      break;
+    }
+    gates = new_gates;
+  }
+
+  return std::ranges::fold_left(
+      std::views::filter(values, [](const auto& p) { return p.first.starts_with('z'); }), 0UZ,
+      [](const auto acc, const auto& elt) {
+        if (elt.second) {
+          const std::string_view view{std::next(elt.first.cbegin()), elt.first.cend()};
+          std::remove_const_t<decltype(acc)> rank;
+          [[maybe_unused]] const auto status = std::from_chars(
+              view.data(), std::next(view.data(), std::ptrdiff_t(view.size())), rank);
+          assert(status.ec == std::errc{});
+          return acc + (1UZ << rank);
+        }
+        return acc;
+      });
+}
 
 auto solve_part2(const auto& input) { return 0; }
 
