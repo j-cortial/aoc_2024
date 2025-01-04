@@ -1,13 +1,16 @@
 #include <algorithm>
 #include <cassert>
 #include <charconv>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <functional>
+#include <istream>
 #include <iterator>
 #include <print>
 #include <ranges>
+#include <span>
 #include <string_view>
 #include <system_error>
 #include <utility>
@@ -55,7 +58,18 @@ auto parse_input(std::istream&& in) {
 enum class Operator : std::uint8_t {
   plus,
   mult,
+  concat,
 };
+
+auto digit_count(const Int& i) {
+  auto result = Int{1};
+  auto bound = Int{9};
+  while (i > bound) {
+    bound = (Int{10} * (bound + Int{1})) - Int{1};
+    ++result;
+  }
+  return result;
+}
 
 auto apply(const Operator& op, const Int& left, const Int& right) {
   switch (op) {
@@ -63,6 +77,8 @@ auto apply(const Operator& op, const Int& left, const Int& right) {
       return left + right;
     case Operator::mult:
       return left * right;
+    case Operator::concat:
+      return (left * Int(std::pow(Int{10}, digit_count(right)))) + right;
   }
   return Int{};
 }
@@ -77,33 +93,56 @@ auto value(auto&& terms, auto&& operators) {
       });
 }
 
-auto combination(const std::size_t size, const std::size_t rank) {
-  std::vector<Operator> result;
-  result.reserve(size);
-  for (std::size_t i{}; i != size; ++i) {
-    result.push_back(Operator((rank >> i) & 1UZ));
-  }
-  return result;
-}
-
+template <typename Part>
 auto is_valid(const Equation& eq) {
   const auto term_count = eq.terms.size();
   assert(term_count > 0);
   const auto op_count = term_count - 1UZ;
-  return std::ranges::any_of(std::ranges::views::iota(0UZ, 1UZ << op_count),
-                             [op_count, &eq](const auto& rank) {
-                               return eq.result == value(eq.terms, combination(op_count, rank));
-                             });
+  return std::ranges::any_of(
+      std::ranges::views::iota(0UZ, Part::size(op_count)), [op_count, &eq](const auto& rank) {
+        return eq.result == value(eq.terms, Part::combination(op_count, rank));
+      });
 }
 
-auto solve_part1(const auto& input) {
+template <typename Part>
+auto solve(const std::span<const Equation> input) {
   return std::ranges::fold_left(
-      std::ranges::views::filter(input, is_valid) |
+      std::ranges::views::filter(input, [&](const auto& eq) { return is_valid<Part>(eq); }) |
           std::ranges::views::transform([](const Equation& eq) { return eq.result; }),
       Int{}, std::plus<>{});
 }
 
-auto solve_part2(const auto& input) { return 0; }
+struct Part1 {
+  static auto size(const std::size_t op_count) { return 1UZ << op_count; }
+
+  static auto combination(const std::size_t size, const std::size_t rank) {
+    std::vector<Operator> result;
+    result.reserve(size);
+    for (std::size_t i{}; i != size; ++i) {
+      result.push_back(Operator((rank >> i) & 1UZ));
+    }
+    return result;
+  }
+};
+
+auto solve_part1(const auto& input) { return solve<Part1>(input); }
+
+struct Part2 {
+  static auto size(const std::size_t op_count) { return std::size_t(std::pow(3UZ, op_count)); }
+
+  static auto combination(const std::size_t size, const std::size_t rank) {
+    std::vector<Operator> result;
+    result.reserve(size);
+    auto r = rank;
+    for (std::size_t i{}; i != size; ++i) {
+      result.push_back(Operator(r % 3UZ));
+      r /= 3UZ;
+    }
+    return result;
+  }
+};
+
+auto solve_part2(const auto& input) { return solve<Part2>(input); }
 
 auto main() -> int {
   const auto input = parse_input(std::ifstream{"input.txt"});
